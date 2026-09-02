@@ -1,4 +1,4 @@
-\# Real-Time Financial Fraud Detection Pipeline
+**# Real-Time Financial Fraud Detection Pipeline**
 
 
 
@@ -6,7 +6,7 @@ A real-time streaming data pipeline designed to detect potentially fraudulent fi
 
 
 
-\## Day 1–3: Infrastructure
+&#x20;**Day 1–3: Infrastructure**
 
 
 
@@ -66,9 +66,9 @@ Fraud Detection \& Analytics
 
 
 
-Infrastructure
+**Infrastructure**
 
-Apache Kafka
+**Apache Kafka**
 
 
 
@@ -94,9 +94,9 @@ Partitions: 3
 
 Replication Factor: 1
 
-Cassandra
 
 
+**Cassandra**
 
 Cassandra is used as the distributed NoSQL database for storing transaction data.
 
@@ -116,7 +116,9 @@ Table:
 
 transactions
 
-Docker
+
+
+**Docker**
 
 
 
@@ -132,9 +134,11 @@ zookeeper
 
 kafka
 
-cassandra
+Cassandra
 
-Project Structure
+
+
+**Project Structure**
 
 real time fraud detection/
 
@@ -154,29 +158,19 @@ real time fraud detection/
 
 └── README.md
 
-Current Progress
+**Current Progress**
 
-&#x20;Docker infrastructure configured
-
-&#x20;Zookeeper provisioned
-
-&#x20;Apache Kafka provisioned
-
-&#x20;Kafka transactions topic created
-
-&#x20;Cassandra provisioned
-
-&#x20;Cassandra keyspace created
-
-&#x20;Transactions table created
-
-&#x20;PaySim data producer
-
-&#x20;Kafka consumer
-
-&#x20;Fraud detection model
-
-&#x20;Real-time dashboard
+* &#x20;Docker infrastructure configured
+* &#x20;Zookeeper provisioned
+* &#x20;Apache Kafka provisioned
+* &#x20;Kafka transactions topic created
+* &#x20;Cassandra provisioned
+* &#x20;Cassandra keyspace created
+* &#x20;Transactions table created
+* &#x20;PaySim data producer
+* &#x20;Kafka consumer
+* &#x20;Fraud detection model
+* &#x20;Real-time dashboard
 
 
 

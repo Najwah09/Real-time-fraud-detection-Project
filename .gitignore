@@ -4,3 +4,11 @@ __pycache__/
 .env
 data/*.csv
 .ipynb_checkpoints/
+
+.venv/
+__pycache__/
+*.pyc
+data/*.csv
+.env
+.vscode/
+.idea/
