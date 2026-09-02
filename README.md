@@ -483,3 +483,201 @@ StandardScaler
 Isolation Forest
         ↓
 Anomaly Detection
+
+## Day 4–6: Model Performance Evaluation & False-Negative Analysis
+
+The trained Isolation Forest model was evaluated against the ground-truth `isFraud` labels from the PaySim dataset.
+
+The primary evaluation objective was to **minimize false negatives (FN)**, because a false negative represents a fraudulent transaction that the system fails to identify.
+
+### Evaluation Dataset
+
+A reproducible sample of 100,000 PaySim transactions was used for evaluation.
+
+| Category                      |   Count |
+| ----------------------------- | ------: |
+| Total evaluation transactions | 100,000 |
+| Legitimate transactions       |  99,859 |
+| Fraudulent transactions       |     141 |
+
+The evaluation used the same transaction and account-balance features used during model training:
+
+* `amount`
+* `oldbalanceOrg`
+* `newbalanceOrig`
+* `oldbalanceDest`
+* `newbalanceDest`
+
+### Evaluation Method
+
+The trained Isolation Forest and StandardScaler were loaded from the local model artifacts.
+
+The model's `decision_function()` was used to obtain anomaly scores.
+
+In Isolation Forest:
+
+* Lower anomaly scores indicate transactions that are more anomalous.
+* Transactions below a selected threshold are classified as anomalies.
+* An anomaly is treated as a potential fraudulent transaction for evaluation purposes.
+
+Multiple alert rates were tested to determine whether increasing sensitivity could reduce missed fraud.
+
+### False-Negative Priority
+
+A false negative occurs when:
+
+```text
+Actual transaction = Fraud
+              ↓
+Model prediction = Normal
+              ↓
+        FALSE NEGATIVE
+              ↓
+       Fraud is missed
+```
+
+Because missed fraud can represent financial loss and security risk, the evaluation prioritized **recall** and reduction of false negatives.
+
+### Threshold Analysis
+
+The following alert rates were evaluated:
+
+| Alert Rate | True Positives | False Negatives | False Positives | Precision | Recall | F1 Score |
+| ---------: | -------------: | --------------: | --------------: | --------: | -----: | -------: |
+|         1% |              1 |             140 |             999 |     0.10% |  0.71% |    0.18% |
+|         2% |             11 |             130 |           1,989 |     0.55% |  7.80% |    1.03% |
+|         3% |             17 |             124 |           2,983 |     0.57% | 12.06% |    1.08% |
+|         5% |             31 |             110 |           4,969 |     0.62% | 21.99% |    1.21% |
+|        10% |             54 |              87 |           9,946 |     0.54% | 38.30% |    1.06% |
+
+### Best Result for False-Negative Reduction
+
+The 10% alert rate produced the highest recall among the tested thresholds.
+
+Results:
+
+```text
+True Positives : 54
+False Negatives: 87
+False Positives: 9,946
+Precision      : 0.54%
+Recall         : 38.30%
+F1 Score       : 1.06%
+```
+
+At the original 1% alert rate:
+
+```text
+False Negatives: 140
+Recall         : 0.71%
+```
+
+At a 10% alert rate:
+
+```text
+False Negatives: 87
+Recall         : 38.30%
+```
+
+Therefore, increasing the alert rate substantially improved the ability to detect known fraudulent transactions and reduced the number of missed fraud cases from **140 to 87** in this evaluation sample.
+
+### Precision vs Recall Trade-Off
+
+The evaluation also demonstrates an important fraud-detection trade-off.
+
+Increasing the alert rate makes the system more sensitive:
+
+```text
+Higher Alert Rate
+        ↓
+More transactions investigated
+        ↓
+More fraud detected
+        ↓
+Fewer False Negatives
+```
+
+However, it also increases false positives:
+
+```text
+Higher Alert Rate
+        ↓
+More legitimate transactions flagged
+        ↓
+Higher investigation workload
+```
+
+At the 10% alert rate, the model detected 54 of 141 fraudulent transactions, but it also incorrectly flagged 9,946 legitimate transactions.
+
+This resulted in a low precision of **0.54%**.
+
+### Key Findings
+
+The evaluation identified the following:
+
+1. The initial 1% anomaly threshold was too insensitive for the fraud-detection objective.
+2. Increasing the alert rate improved fraud recall.
+3. The 10% alert rate achieved the highest recall among the tested thresholds.
+4. False negatives decreased from 140 to 87.
+5. Despite improved recall, 87 of 141 fraudulent transactions were still missed.
+6. Precision remained very low because a large number of legitimate transactions were flagged.
+7. The current feature set does not provide sufficient separation between fraudulent and legitimate transactions.
+
+### Model Limitation
+
+The evaluation demonstrates that the current Isolation Forest model is **not yet production-ready for fraud detection**.
+
+Although increasing the alert rate improved recall, the model still missed a substantial proportion of actual fraudulent transactions.
+
+The extremely low precision also means that a production system using the current model would generate a large number of false alerts.
+
+Therefore, the current model should be considered a **baseline anomaly-detection model**, rather than a final fraud classifier.
+
+### Next Improvement Areas
+
+To reduce false negatives further, the next iterations should investigate:
+
+* Additional transaction-behavior features
+* Transaction type as a model feature
+* Account-level historical behavior
+* Transaction frequency
+* Sudden balance changes
+* Amount relative to historical account activity
+* Time-based transaction patterns
+* Separate models or thresholds by transaction type
+* Supervised fraud classification using the `isFraud` label
+* Class-imbalance handling
+* Precision-recall based threshold optimization
+
+### Evaluation Script
+
+The evaluation is implemented in:
+
+```text
+model/
+└── evaluate_isolation_forest.py
+```
+
+Run the evaluation with:
+
+```powershell
+python model\evaluate_isolation_forest.py
+```
+
+### Day 4–6 Completion Status
+
+| Task                                      | Status      |
+| ----------------------------------------- | ----------- |
+| Load trained Isolation Forest             | ✅ Completed |
+| Load historical evaluation data           | ✅ Completed |
+| Compare predictions with `isFraud` labels | ✅ Completed |
+| Generate confusion matrix metrics         | ✅ Completed |
+| Calculate Precision                       | ✅ Completed |
+| Calculate Recall                          | ✅ Completed |
+| Calculate F1 Score                        | ✅ Completed |
+| Analyze false negatives                   | ✅ Completed |
+| Test multiple alert thresholds            | ✅ Completed |
+| Identify recall/precision trade-off       | ✅ Completed |
+| Document model limitations                | ✅ Completed |
+
+**Day 4–6 Result:** The Isolation Forest baseline was evaluated with a strong emphasis on minimizing missed fraud. Threshold analysis showed that increasing the alert rate from 1% to 10% improved recall from **0.71% to 38.30%** and reduced false negatives from **140 to 87**, but at the cost of a substantial increase in false positives. Further feature engineering and supervised modeling are required to improve fraud detection performance.
