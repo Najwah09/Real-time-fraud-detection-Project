@@ -1,0 +1,26 @@
+Real-time-fraud-detection-Project/
+│
+├── data/
+│   └── README.md
+│
+├── kafka/
+│   ├── producer.py
+│   └── README.md
+│
+├── model/
+│   ├── train_model.py
+│   ├── evaluate_model.py
+│   └── fraud_model.pkl
+│
+├── notebooks/
+│   └── model_training.ipynb
+│
+├── docker/
+│   ├── docker-compose.yml
+│   └── README.md
+│
+├── tests/
+│
+├── requirements.txt
+├── README.md
+└── .gitignore
