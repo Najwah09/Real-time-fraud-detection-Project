@@ -681,3 +681,110 @@ python model\evaluate_isolation_forest.py
 | Document model limitations                | ✅ Completed |
 
 **Day 4–6 Result:** The Isolation Forest baseline was evaluated with a strong emphasis on minimizing missed fraud. Threshold analysis showed that increasing the alert rate from 1% to 10% improved recall from **0.71% to 38.30%** and reduced false negatives from **140 to 87**, but at the cost of a substantial increase in false positives. Further feature engineering and supervised modeling are required to improve fraud detection performance.
+
+
+## Day 7 — Export and Serialize the Trained Model
+
+### Objective
+
+Export and serialize the trained Isolation Forest anomaly detection model so that it can be loaded and integrated into the real-time Kafka streaming pipeline.
+
+### Serialized Model Artifacts
+
+The trained model and preprocessing scaler are saved using Python's `joblib` serialization library.
+
+```text
+model/
+└── artifacts/
+    ├── isolation_forest.pkl
+    └── scaler.pkl
+```
+
+### Artifact Description
+
+| Artifact               | Purpose                                              |
+| ---------------------- | ---------------------------------------------------- |
+| `isolation_forest.pkl` | Serialized Isolation Forest anomaly detection model  |
+| `scaler.pkl`           | Serialized StandardScaler used during model training |
+
+The scaler is saved together with the model because incoming Kafka transactions must be transformed using the same preprocessing logic before anomaly detection.
+
+### Model Export Verification
+
+A verification script was created:
+
+```text
+model/export_model.py
+```
+
+The script:
+
+1. Checks whether the serialized model exists.
+2. Checks whether the serialized scaler exists.
+3. Loads both artifacts using `joblib.load()`.
+4. Verifies the model type.
+5. Verifies the scaler type.
+6. Reports the artifact locations and sizes.
+
+Run the verification with:
+
+```powershell
+python model\export_model.py
+```
+
+### Serialization Technology
+
+The project uses:
+
+```python
+joblib.dump()
+joblib.load()
+```
+
+`joblib` is suitable for serializing the trained scikit-learn model and preprocessing scaler.
+
+### Integration Architecture
+
+The serialized artifacts will be used in the next stage of the streaming pipeline:
+
+```text
+Kafka
+  ↓
+Transaction Consumer
+  ↓
+Load isolation_forest.pkl
+  ↓
+Load scaler.pkl
+  ↓
+Transform transaction features
+  ↓
+Generate anomaly score
+  ↓
+Fraud / Anomaly Decision
+  ↓
+Cassandra
+```
+
+### GitHub Handling
+
+The `.pkl` model artifacts are intentionally excluded from Git using `.gitignore`.
+
+```gitignore
+model/artifacts/*.pkl
+```
+
+This prevents binary model artifacts from being unnecessarily committed to the repository.
+
+The model export and verification code is committed to GitHub so the trained model can be reproduced and integrated into the streaming pipeline.
+
+### Day 7 Completion Status
+
+* [x] Train Isolation Forest model
+* [x] Serialize trained model
+* [x] Serialize feature scaler
+* [x] Verify serialized artifacts can be loaded
+* [x] Create model export/verification script
+* [x] Document model artifacts
+* [x] Prepare model for streaming integration
+
+**Status: Completed**
