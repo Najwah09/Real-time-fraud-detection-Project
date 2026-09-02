@@ -12,3 +12,6 @@ data/*.csv
 .env
 .vscode/
 .idea/
+
+# Trained model artifacts
+model/artifacts/*.pkl
