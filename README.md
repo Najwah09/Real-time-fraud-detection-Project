@@ -777,7 +777,7 @@ This prevents binary model artifacts from being unnecessarily committed to the r
 
 The model export and verification code is committed to GitHub so the trained model can be reproduced and integrated into the streaming pipeline.
 
-### Day 7 Completion Status
+###Week 2: Day 7 Completion Status
 
 * [x] Train Isolation Forest model
 * [x] Serialize trained model
@@ -787,4 +787,103 @@ The model export and verification code is committed to GitHub so the trained mod
 * [x] Document model artifacts
 * [x] Prepare model for streaming integration
 
-**Status: Completed**
+## Week 3: Real-Time Stream Processing
+
+### Day 1–4 — Apache Spark Structured Streaming with Kafka
+
+Configured Apache Spark Structured Streaming to consume real-time financial transaction data from the Kafka `transactions` topic using micro-batch processing.
+
+#### Architecture
+
+```text
+PaySim CSV Dataset
+        ↓
+Python Kafka Producer
+        ↓
+Apache Kafka
+   transactions
+        ↓
+Spark Structured Streaming
+        ↓
+JSON Parsing
+        ↓
+Transaction DataFrame
+```
+
+#### Technologies
+
+* Apache Spark 4.2.0
+* Spark Structured Streaming
+* Apache Kafka
+* Python
+* PySpark
+* Kafka Spark SQL Connector
+
+#### Implementation
+
+The Spark streaming application:
+
+1. Connects to the Kafka broker at `localhost:9092`.
+2. Subscribes to the `transactions` Kafka topic.
+3. Reads incoming Kafka messages as a streaming DataFrame.
+4. Converts Kafka message values from JSON strings into structured transaction records.
+5. Uses a defined transaction schema for the PaySim fields.
+6. Processes incoming transactions using micro-batches.
+7. Runs a processing trigger every 5 seconds.
+8. Displays incoming transactions in the Spark console for validation.
+
+#### Transaction Schema
+
+The streaming application processes the following fields:
+
+* `transaction_id`
+* `step`
+* `type`
+* `amount`
+* `nameOrig`
+* `oldbalanceOrg`
+* `newbalanceOrig`
+* `nameDest`
+* `oldbalanceDest`
+* `newbalanceDest`
+* `isFraud`
+* `isFlaggedFraud`
+
+#### Streaming Configuration
+
+```python
+.option("kafka.bootstrap.servers", "localhost:9092")
+.option("subscribe", "transactions")
+.option("startingOffsets", "latest")
+.trigger(processingTime="5 seconds")
+```
+
+#### Validation
+
+The Spark Structured Streaming application was successfully tested with the Python Kafka producer.
+
+The producer successfully sent PaySim transactions to the Kafka `transactions` topic, and Spark Structured Streaming was configured to consume the incoming transactions in micro-batches.
+
+Example producer output:
+
+```text
+Sent transaction 420 | Type: CASH_IN | Amount: 257348.03 | Fraud: 0
+Sent transaction 421 | Type: CASH_IN | Amount: 201073.81 | Fraud: 0
+Sent transaction 422 | Type: CASH_IN | Amount: 53560.68 | Fraud: 0
+...
+```
+
+Spark successfully started the streaming query with:
+
+```text
+Starting Structured Streaming...
+Processing mode: micro-batch
+Trigger interval: 5 seconds
+```
+
+#### Status
+
+**Week 3 Day 1–4 — COMPLETED ✅**
+
+The Kafka → Spark Structured Streaming pipeline is operational and ready for the next stage: real-time fraud/anomaly scoring using the trained Isolation Forest model.
+
