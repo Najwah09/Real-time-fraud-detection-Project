@@ -40,10 +40,11 @@ def create_spark_session():
         SparkSession.builder
         .appName("RealTimeFraudScoring")
         .master("local[*]")
-        .config(
-            "spark.jars.packages",
-            "org.apache.spark:spark-sql-kafka-0-10_2.13:4.2.0"
-        )
+ 	.config(
+    	    "spark.jars.packages",
+            "org.apache.spark:spark-sql-kafka-0-10_2.13:4.2.0,"
+    	    "com.datastax.spark:spark-cassandra-connector_2.13:3.5.1"
+	)
         .config(
             "spark.sql.streaming.forceDeleteTempCheckpointLocation",
             "true"
@@ -234,6 +235,17 @@ def process_batch(batch_df, batch_id, model, scaler):
         )
     )
 
+    fraud_alerts = (
+        fraud_alerts
+        .withColumnRenamed("isFlaggedFraud", "is_flagged_fraud")
+        .withColumnRenamed("isFraud", "is_fraud")
+        .withColumnRenamed("nameDest", "name_dest")
+        .withColumnRenamed("nameOrig", "name_orig")
+        .withColumnRenamed("newbalanceDest", "new_balance_dest")
+        .withColumnRenamed("newbalanceOrig", "new_balance_orig")
+        .withColumnRenamed("oldbalanceDest", "old_balance_dest")
+        .withColumnRenamed("oldbalanceOrg", "old_balance_org")
+    )
     (
         fraud_alerts
         .write
