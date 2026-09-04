@@ -887,3 +887,56 @@ Trigger interval: 5 seconds
 
 The Kafka → Spark Structured Streaming pipeline is operational and ready for the next stage: real-time fraud/anomaly scoring using the trained Isolation Forest model.
 
+Week 3:Day 5-7 
+## Day 5–7: Real-Time Fraud Scoring
+
+The pre-trained Isolation Forest machine learning model is integrated into the Spark Structured Streaming pipeline to score incoming transactions in real time.
+
+### Processing Flow
+
+PaySim Transaction
+        ↓
+Python Kafka Producer
+        ↓
+Kafka Topic: `transactions`
+        ↓
+Spark Structured Streaming
+        ↓
+Feature Preparation & Scaling
+        ↓
+Pre-trained Isolation Forest Model
+        ↓
+Prediction + Anomaly Score
+        ↓
+Flagged Transactions (`prediction = -1`)
+        ↓
+Cassandra
+        ↓
+`fraud_detection.fraud_alerts`
+
+### Machine Learning Scoring
+
+The Spark pipeline loads the pre-trained model and scaler:
+
+- `model/artifacts/isolation_forest.pkl`
+- `model/artifacts/scaler.pkl`
+
+The five features used for scoring are:
+
+1. `amount`
+2. `oldbalanceOrg`
+3. `newbalanceOrig`
+4. `oldbalanceDest`
+5. `newbalanceDest`
+
+The features are scaled before being passed to the Isolation Forest model.
+
+```python
+X_scaled = scaler.transform(
+    pandas_df[feature_columns]
+)
+
+predictions = model.predict(X_scaled)
+
+anomaly_scores = model.decision_function(X_scaled)
+
