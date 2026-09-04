@@ -92,6 +92,8 @@ def load_model():
 
     print("Isolation Forest model loaded successfully.")
     print("Scaler loaded successfully.")
+    print(f"Model features: {model.n_features_in_}")
+    print(f"Scaler features: {scaler.n_features_in_}")
 
     return model, scaler
 
