@@ -1,5 +1,4 @@
 services:
-
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: fraud-zookeeper
@@ -19,10 +18,8 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
-
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
 
@@ -36,3 +33,13 @@ services:
       CASSANDRA_DC: datacenter1
       CASSANDRA_RACK: rack1
       CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+
+  grafana:
+    image: grafana/grafana:12.4.10
+    container_name: fraud-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: Admin@12345
+    restart: unless-stopped

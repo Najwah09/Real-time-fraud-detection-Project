@@ -214,6 +214,10 @@ def process_batch(batch_df, batch_id, model, scaler):
             current_timestamp()
         )
         .withColumn(
+            "processed_time",
+            current_timestamp()
+        )
+        .withColumn(
             "alert_reason",
             lit("Isolation Forest anomaly detected")
         )
@@ -232,6 +236,7 @@ def process_batch(batch_df, batch_id, model, scaler):
             "oldbalanceDest",
             "oldbalanceOrg",
             "prediction",
+            "processed_time",
             "step",
             "type",
         )
