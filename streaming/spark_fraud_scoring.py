@@ -7,6 +7,7 @@ from pyspark.sql.functions import (
     from_json,
     lit,
     current_timestamp,
+    when,
 )
 from pyspark.sql.types import (
     StructType,
@@ -24,8 +25,9 @@ from pyspark.sql.types import (
 KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
 KAFKA_TOPIC = "transactions"
 
-CHECKPOINT_LOCATION = r"C:\Users\NAJWAH\Desktop\real time fraud detection\checkpoints\fraud_scoring"
-
+CHECKPOINT_LOCATION = (
+    "/tmp/fraud_detection_checkpoint"
+)
 
 MODEL_PATH = "model/artifacts/isolation_forest.pkl"
 SCALER_PATH = "model/artifacts/scaler.pkl"
@@ -44,18 +46,14 @@ def create_spark_session():
         .config("spark.driver.memory", "2g")
         .config("spark.executor.memory", "2g")
         .config("spark.sql.shuffle.partitions", "3")
- 	.config(
-    	    "spark.jars.packages",
-            "org.apache.spark:spark-sql-kafka-0-10_2.13:4.2.0,"
-    	    "com.datastax.spark:spark-cassandra-connector_2.13:3.5.1"
-	)
         .config(
-            "spark.sql.streaming.forceDeleteTempCheckpointLocation",
-            "true"
+            "spark.jars.packages",
+            "org.apache.spark:spark-sql-kafka-0-10_2.13:4.2.0,"
+            "com.datastax.spark:spark-cassandra-connector_2.13:3.5.1"
         )
         .config(
-            "spark.hadoop.fs.file.impl.disable.cache",
-            "true"
+            "spark.sql.adaptive.enabled",
+            "false"
         )
         .getOrCreate()
     )
@@ -103,21 +101,8 @@ def load_model():
 
 
 # ============================================================
-# FRAUD SCORING
+# PROCESS BATCH
 # ============================================================
-def load_model():
-
-    print("\nLoading trained Isolation Forest model...")
-
-    model = joblib.load(MODEL_PATH)
-    scaler = joblib.load(SCALER_PATH)
-
-    print("Isolation Forest model loaded successfully.")
-    print("Scaler loaded successfully.")
-    print(f"Model features: {model.n_features_in_}")
-    print(f"Scaler features: {scaler.n_features_in_}")
-
-    return model, scaler
 
 def process_batch(batch_df, batch_id, model, scaler):
 
@@ -129,14 +114,16 @@ def process_batch(batch_df, batch_id, model, scaler):
         print("No transactions in this batch.")
         return
 
+    # --------------------------------------------------------
     # Convert Spark DataFrame to Pandas
+    # --------------------------------------------------------
+
     pandas_df = batch_df.toPandas()
 
-    # Features used for scoring
+    # --------------------------------------------------------
+    # MODEL FEATURES
+    # --------------------------------------------------------
 
-    # Make sure required columns exist
-        # Features used for scoring
-    # Must match the 5 features used during model training
     feature_columns = [
         "amount",
         "oldbalanceOrg",
@@ -145,7 +132,6 @@ def process_batch(batch_df, batch_id, model, scaler):
         "newbalanceDest",
     ]
 
-    # Make sure required columns exist
     missing_columns = [
         column
         for column in feature_columns
@@ -153,47 +139,165 @@ def process_batch(batch_df, batch_id, model, scaler):
     ]
 
     if missing_columns:
-        print(f"Missing columns: {missing_columns}")
+
+        print(
+            f"Missing columns: {missing_columns}"
+        )
+
         return
 
-    # Fill missing numeric values
+    # --------------------------------------------------------
+    # HANDLE MISSING VALUES
+    # --------------------------------------------------------
+
     pandas_df[feature_columns] = (
         pandas_df[feature_columns]
         .fillna(0)
     )
 
-    # Scale features
+    # --------------------------------------------------------
+    # SCALE FEATURES
+    # --------------------------------------------------------
+
     X_scaled = scaler.transform(
         pandas_df[feature_columns]
     )
 
-    # Isolation Forest prediction
+    # --------------------------------------------------------
+    # ISOLATION FOREST
+    # --------------------------------------------------------
+
     predictions = model.predict(X_scaled)
 
-    # Anomaly score
-    anomaly_scores = model.decision_function(X_scaled)
+    anomaly_scores = (
+        model.decision_function(X_scaled)
+    )
 
-    # -1 = anomaly/fraud candidate
-    #  1 = normal transaction
     pandas_df["prediction"] = predictions
     pandas_df["anomaly_score"] = anomaly_scores
+
+    # -1 = anomaly
+    #  1 = normal
 
     fraud_df = pandas_df[
         pandas_df["prediction"] == -1
     ].copy()
 
-    print(f"Transactions received: {len(pandas_df)}")
-    print(f"Fraud candidates: {len(fraud_df)}")
+    print(
+        f"Transactions received: {len(pandas_df)}"
+    )
+
+    print(
+        f"Fraud candidates: {len(fraud_df)}"
+    )
+
+    # ========================================================
+    # WRITE ALL TRANSACTIONS TO CASSANDRA
+    # ========================================================
+
+    print(
+        "\nWriting ALL transactions to Cassandra..."
+    )
+
+    all_transactions_spark_df = (
+        spark.createDataFrame(pandas_df)
+    )
+
+    all_transactions = (
+        all_transactions_spark_df
+
+        # Convert 0/1 to boolean
+        .withColumn(
+            "is_flagged_fraud",
+            when(
+                col("isFlaggedFraud") == 1,
+                True
+            ).otherwise(False)
+        )
+
+        .withColumn(
+            "is_fraud",
+            when(
+                col("isFraud") == 1,
+                True
+            ).otherwise(False)
+        )
+
+        .withColumnRenamed(
+            "newbalanceDest",
+            "new_balance_destination"
+        )
+
+        .withColumnRenamed(
+            "newbalanceOrig",
+            "new_balance_origin"
+        )
+
+        .withColumnRenamed(
+            "oldbalanceDest",
+            "old_balance_destination"
+        )
+
+        .withColumnRenamed(
+            "oldbalanceOrg",
+            "old_balance_origin"
+        )
+
+        .withColumnRenamed(
+            "type",
+            "transaction_type"
+        )
+
+        .select(
+            "transaction_id",
+            "amount",
+            "is_flagged_fraud",
+            "is_fraud",
+            "new_balance_destination",
+            "new_balance_origin",
+            "old_balance_destination",
+            "old_balance_origin",
+            "transaction_type"
+        )
+    )
+
+    (
+        all_transactions.write
+        .format(
+            "org.apache.spark.sql.cassandra"
+        )
+        .option(
+            "keyspace",
+            "fraud_detection"
+        )
+        .option(
+            "table",
+            "transactions"
+        )
+        .mode("append")
+        .save()
+    )
+
+    print(
+        f"SUCCESS: {len(pandas_df)} transaction(s) "
+        "written to Cassandra."
+    )
+
+    # ========================================================
+    # WRITE FRAUD ALERTS
+    # ========================================================
 
     if len(fraud_df) == 0:
-        print("No fraud candidates detected.")
+
+        print(
+            "\nNo fraud candidates detected."
+        )
+
         return
 
-    # ========================================================
-    # WRITE FRAUD ALERTS TO CASSANDRA
-    # ========================================================
-
-    print("\nFraud candidates detected:")
+    print(
+        "\nFraud candidates detected:"
+    )
 
     print(
         fraud_df[
@@ -208,33 +312,95 @@ def process_batch(batch_df, batch_id, model, scaler):
         ].to_string(index=False)
     )
 
-    # Convert back to Spark DataFrame
-    fraud_spark_df = spark.createDataFrame(fraud_df)
+    # --------------------------------------------------------
+    # Convert fraud dataframe back to Spark
+    # --------------------------------------------------------
+
+    fraud_spark_df = (
+        spark.createDataFrame(fraud_df)
+    )
+
+    # --------------------------------------------------------
+    # Prepare fraud alerts
+    # --------------------------------------------------------
 
     fraud_alerts = (
         fraud_spark_df
+
         .withColumn(
             "processed_time",
             current_timestamp()
         )
+
         .withColumn(
             "alert_reason",
-            lit("Isolation Forest anomaly detected")
+            lit(
+                "Isolation Forest anomaly detected"
+            )
         )
+
+        # Convert 0/1 to Cassandra-compatible
+        # boolean values
+        .withColumn(
+            "is_flagged_fraud",
+            when(
+                col("isFlaggedFraud") == 1,
+                True
+            ).otherwise(False)
+        )
+
+        .withColumn(
+            "is_fraud",
+            when(
+                col("isFraud") == 1,
+                True
+            ).otherwise(False)
+        )
+
+        .withColumnRenamed(
+            "nameDest",
+            "name_dest"
+        )
+
+        .withColumnRenamed(
+            "nameOrig",
+            "name_orig"
+        )
+
+        .withColumnRenamed(
+            "newbalanceDest",
+            "new_balance_dest"
+        )
+
+        .withColumnRenamed(
+            "newbalanceOrig",
+            "new_balance_orig"
+        )
+
+        .withColumnRenamed(
+            "oldbalanceDest",
+            "old_balance_dest"
+        )
+
+        .withColumnRenamed(
+            "oldbalanceOrg",
+            "old_balance_org"
+        )
+
         .select(
             "transaction_id",
             "alert_reason",
             "amount",
             "anomaly_score",
             "event_time",
-            "isFlaggedFraud",
-            "isFraud",
-            "nameDest",
-            "nameOrig",
-            "newbalanceDest",
-            "newbalanceOrig",
-            "oldbalanceDest",
-            "oldbalanceOrg",
+            "is_flagged_fraud",
+            "is_fraud",
+            "name_dest",
+            "name_orig",
+            "new_balance_dest",
+            "new_balance_orig",
+            "old_balance_dest",
+            "old_balance_org",
             "prediction",
             "processed_time",
             "step",
@@ -242,23 +408,23 @@ def process_batch(batch_df, batch_id, model, scaler):
         )
     )
 
-    fraud_alerts = (
-        fraud_alerts
-        .withColumnRenamed("isFlaggedFraud", "is_flagged_fraud")
-        .withColumnRenamed("isFraud", "is_fraud")
-        .withColumnRenamed("nameDest", "name_dest")
-        .withColumnRenamed("nameOrig", "name_orig")
-        .withColumnRenamed("newbalanceDest", "new_balance_dest")
-        .withColumnRenamed("newbalanceOrig", "new_balance_orig")
-        .withColumnRenamed("oldbalanceDest", "old_balance_dest")
-        .withColumnRenamed("oldbalanceOrg", "old_balance_org")
-    )
+    # --------------------------------------------------------
+    # Write fraud alerts
+    # --------------------------------------------------------
+
     (
-        fraud_alerts
-        .write
-        .format("org.apache.spark.sql.cassandra")
-        .option("keyspace", "fraud_detection")
-        .option("table", "fraud_alerts")
+        fraud_alerts.write
+        .format(
+            "org.apache.spark.sql.cassandra"
+        )
+        .option(
+            "keyspace",
+            "fraud_detection"
+        )
+        .option(
+            "table",
+            "fraud_alerts"
+        )
         .mode("append")
         .save()
     )
@@ -277,7 +443,9 @@ def start_streaming():
 
     print("=" * 70)
     print("REAL-TIME FRAUD DETECTION")
-    print("Spark + Kafka + Isolation Forest + Cassandra")
+    print(
+        "Spark + Kafka + Isolation Forest + Cassandra"
+    )
     print("=" * 70)
 
     global spark
@@ -291,51 +459,93 @@ def start_streaming():
     schema = create_transaction_schema()
 
     print("\nConnecting to Kafka...")
-    print(f"Kafka broker: {KAFKA_BOOTSTRAP_SERVERS}")
-    print(f"Kafka topic : {KAFKA_TOPIC}")
+    print(
+        f"Kafka broker: "
+        f"{KAFKA_BOOTSTRAP_SERVERS}"
+    )
+    print(
+        f"Kafka topic : {KAFKA_TOPIC}"
+    )
+
+    # --------------------------------------------------------
+    # READ FROM KAFKA
+    # --------------------------------------------------------
 
     kafka_df = (
         spark.readStream
+
         .format("kafka")
+
         .option(
             "kafka.bootstrap.servers",
             KAFKA_BOOTSTRAP_SERVERS
         )
+
         .option(
             "subscribe",
             KAFKA_TOPIC
         )
+
         .option(
             "startingOffsets",
             "latest"
         )
+
         .load()
     )
 
+    # --------------------------------------------------------
+    # PARSE JSON
+    # --------------------------------------------------------
+
     transactions = (
         kafka_df
+
         .selectExpr(
             "CAST(value AS STRING) AS json_value",
             "timestamp AS event_time"
         )
+
         .select(
             from_json(
                 col("json_value"),
                 schema
-            ).alias("transaction")
+            ).alias("transaction"),
+
+            col("event_time")
         )
-        .select("transaction.*",
-                "event_time")
+
+        .select(
+            "transaction.*",
+            "event_time"
+        )
     )
 
-    print("\nStarting fraud scoring stream...")
-    print("Processing mode: micro-batch")
-    print("Trigger interval: 5 seconds")
-    print("Press CTRL+C to stop.")
+    # --------------------------------------------------------
+    # START STREAM
+    # --------------------------------------------------------
+
+    print(
+        "\nStarting fraud scoring stream..."
+    )
+
+    print(
+        "Processing mode: micro-batch"
+    )
+
+    print(
+        "Trigger interval: 5 seconds"
+    )
+
+    print(
+        "Press CTRL+C to stop."
+    )
 
     query = (
         transactions
+
         .writeStream
+
         .foreachBatch(
             lambda df, batch_id:
             process_batch(
@@ -345,13 +555,16 @@ def start_streaming():
                 scaler
             )
         )
+
         .option(
             "checkpointLocation",
             CHECKPOINT_LOCATION
         )
+
         .trigger(
             processingTime="5 seconds"
         )
+
         .start()
     )
 
@@ -363,4 +576,5 @@ def start_streaming():
 # ============================================================
 
 if __name__ == "__main__":
+
     start_streaming()
