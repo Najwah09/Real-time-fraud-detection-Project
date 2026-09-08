@@ -211,10 +211,6 @@ def process_batch(batch_df, batch_id, model, scaler):
     fraud_alerts = (
         fraud_spark_df
         .withColumn(
-            "event_time",
-            current_timestamp()
-        )
-        .withColumn(
             "processed_time",
             current_timestamp()
         )
@@ -316,7 +312,8 @@ def start_streaming():
     transactions = (
         kafka_df
         .selectExpr(
-            "CAST(value AS STRING) AS json_value"
+            "CAST(value AS STRING) AS json_value",
+            "timestamp AS event_time"
         )
         .select(
             from_json(
@@ -324,7 +321,8 @@ def start_streaming():
                 schema
             ).alias("transaction")
         )
-        .select("transaction.*")
+        .select("transaction.*",
+                "event_time")
     )
 
     print("\nStarting fraud scoring stream...")
