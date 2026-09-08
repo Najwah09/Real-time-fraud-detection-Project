@@ -970,3 +970,27 @@ The system continuously monitors the `transactions` Kafka topic and automaticall
 ### Verification
 
 The pipeline was successfully verified using Cassandra queries.
+## Grafana Fraud Detection Dashboard
+
+The project includes a Grafana dashboard for real-time fraud monitoring.
+
+### Dashboard Metrics
+
+- Total Transactions
+- Total Fraud Alerts
+- Fraud Amount
+- Fraud Alert Volume
+- Transaction Velocity
+- Fraud Alert Amount Over Time
+
+### Dashboard Preview
+
+![Real-Time Fraud Detection Dashboard](grafana/screenshots/fraud_detection_dashboard.png)
+
+### Dashboard Configuration
+
+The Grafana dashboard configuration is available here:
+
+[`fraud_detection_dashboard.json`](grafana/dashboards/fraud_detection_dashboard.json)
+
+The dashboard uses Apache Cassandra as the data source and reads from the `fraud_detection` keyspace.
