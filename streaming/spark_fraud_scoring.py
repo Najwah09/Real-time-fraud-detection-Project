@@ -24,7 +24,8 @@ from pyspark.sql.types import (
 KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
 KAFKA_TOPIC = "transactions"
 
-CHECKPOINT_LOCATION = "/home/najwah/fraud_scoring_checkpoint"
+CHECKPOINT_LOCATION = r"C:\Users\NAJWAH\Desktop\real time fraud detection\checkpoints\fraud_scoring"
+
 
 MODEL_PATH = "model/artifacts/isolation_forest.pkl"
 SCALER_PATH = "model/artifacts/scaler.pkl"
