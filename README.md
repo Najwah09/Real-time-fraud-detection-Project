@@ -939,4 +939,34 @@ X_scaled = scaler.transform(
 predictions = model.predict(X_scaled)
 
 anomaly_scores = model.decision_function(X_scaled)
+Isolation Forest predictions:
 
+- `1` → Normal transaction
+- `-1` → Anomalous transaction / fraud candidate
+
+### Fraud Alert Storage
+
+Transactions identified as anomalies are routed to the Cassandra `fraud_alerts` table.
+
+Each alert contains information such as:
+
+- Transaction ID
+- Transaction type
+- Amount
+- Anomaly score
+- Prediction
+- Fraud label
+- Origin and destination accounts
+- Account balances
+- Event timestamp
+- Alert reason
+
+### Streaming Configuration
+
+The Spark application processes Kafka messages using micro-batches with a 5-second trigger interval.
+
+The system continuously monitors the `transactions` Kafka topic and automatically writes detected fraud candidates to Cassandra.
+
+### Verification
+
+The pipeline was successfully verified using Cassandra queries.
