@@ -968,7 +968,7 @@ The Spark application processes Kafka messages using micro-batches with a 5-seco
 The system continuously monitors the `transactions` Kafka topic and automatically writes detected fraud candidates to Cassandra.
 
 ### Verification
-
+WEEK 4: 
 The pipeline was successfully verified using Cassandra queries.
 ## Grafana Fraud Detection Dashboard
 
