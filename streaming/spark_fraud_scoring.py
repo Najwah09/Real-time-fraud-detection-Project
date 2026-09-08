@@ -41,6 +41,9 @@ def create_spark_session():
         SparkSession.builder
         .appName("RealTimeFraudScoring")
         .master("local[*]")
+        .config("spark.driver.memory", "2g")
+        .config("spark.executor.memory", "2g")
+        .config("spark.sql.shuffle.partitions", "3")
  	.config(
     	    "spark.jars.packages",
             "org.apache.spark:spark-sql-kafka-0-10_2.13:4.2.0,"
