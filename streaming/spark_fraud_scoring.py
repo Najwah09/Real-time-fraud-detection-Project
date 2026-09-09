@@ -341,27 +341,18 @@ def process_batch(batch_df, batch_id, model, scaler):
 
         # Convert 0/1 to Cassandra-compatible
         # boolean values
-        .withColumn(
-            "is_flagged_fraud",
-            when(
-                col("isFlaggedFraud") == 1,
-                True
-            ).otherwise(False)
+	.withColumn(
+	     "is_flagged_fraud",
+             col("isFlaggedFraud").cast("int")
         )
-
         .withColumn(
-            "is_fraud",
-            when(
-                col("isFraud") == 1,
-                True
-            ).otherwise(False)
+              "is_fraud",
+              col("isFraud").cast("int")
         )
-
         .withColumnRenamed(
             "nameDest",
             "name_dest"
         )
-
         .withColumnRenamed(
             "nameOrig",
             "name_orig"
